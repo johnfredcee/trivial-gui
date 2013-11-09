@@ -7,10 +7,45 @@
 ;; there will need to be methods to scale units from viewport system to internal
 ;; for fitting things, etc.
 
+;; -- macrotic evil --------------
+
+(defmacro with-gui-canvas (canvas  &body body)
+  `(let ((temp-state ((copy vecto::*graphics-state*))))
+	 (prog2   
+		 (setf (vecto::*graphics-state* (canvas-of ,canvas)))
+		 ,@body
+	   (setf vecto::*graphics-state* temp-state))))
+
+;; -- functions ------------------
+
+(defun ndc-to-pixel (origin size)
+  (multiple-value-bind (vx vy vw vh)
+	  (gl::get-integer :VIEWPORT)
+	(let ((nx (/ (+ 1.0 (car origin))  2.0))
+		  (ny (/ (+ 1.0 (cadr origin)  2.0)))
+		  (nw (/ (car size) 2.0))
+		  (nh (/ (car size) 2.0)))			
+	  (values (+ vx (* nx vw))
+			  (+ vy (* ny vh))
+			  (* nw vw)
+			  (* nh vh)))))
+
 ;; -- classes --------------------
 (defclass gui-element ()
   ((origin :accessor origin-of :initarg :origin :initform '(0.0 0.0))
    (size :accessor size-of :initarg :size :initform '(0.0 0.0))))
+
+(defclass gui-canvas ()
+  ((pixel-size :reader pixel-size-of)
+   (canvas :accessor canvas-of)))
+
+(defmethod initialize-instance ((self gui-canvas) &rest initargs)
+  (declare (ignore initargs))
+  (let ((pixel-dimensions
+		 (multiple-value-list (apply #'ndc-to-pixel (origin-of self) (size-of self)))))
+	(setf (slot-value self 'pixel-size) (list (caddr pixel-dimensions) (cadddr pixel-dimensions)))
+	(setf (slot-value self 'canvas) (make-instance 'vecto::graphics-state))
+	(vecto::state-image (slot-value self 'canvas) (caddr pixel-dimensions) (cadddr pixel-dimensions))))
 
 ;; -- generic functiosn --------------------
 (defgeneric render (element)

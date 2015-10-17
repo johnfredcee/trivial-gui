@@ -7,6 +7,12 @@
 ;; there will need to be methods to scale units from viewport system to internal
 ;; for fitting things, etc.
 
+;; 
+;; It is expected that the gui will rendering to a surface with OpenGL NDC coordinates
+;; running from -1.0 to 1.0...when rendering to individual elements, this space will
+;; also be used with -1.0, -1.0 at the top and 1.0, 1.0 at the bottom
+;;
+
 ;; -- macrotic evil --------------
 
 (defmacro with-gui-canvas (canvas  &body body)
@@ -19,12 +25,15 @@
 ;; -- functions ------------------
 
 (defun ndc-to-pixel (origin size)
+  "Convert (ox oy) (w h) to ndc pixel space coordinates via
+   viewport. Useful for calculating sizes of pixel buffers for gui
+   canvases and the like"
   (multiple-value-bind (vx vy vw vh)
 	  (gl::get-integer :VIEWPORT)
 	(let ((nx (/ (+ 1.0 (car origin))  2.0))
 		  (ny (/ (+ 1.0 (cadr origin)  2.0)))
-		  (nw (/ (car size) 2.0))
-		  (nh (/ (car size) 2.0)))			
+		  (nw (/ (car  size) 2.0))
+		  (nh (/ (cadr size) 2.0)))			
 	  (values (+ vx (* nx vw))
 			  (+ vy (* ny vh))
 			  (* nw vw)
@@ -33,16 +42,17 @@
 ;; -- classes --------------------
 (defclass gui-element ()
   ((origin :accessor origin-of :initarg :origin :initform '(0.0 0.0))
-   (size :accessor size-of :initarg :size :initform '(0.0 0.0))))
+   (size :accessor size-of :initarg :size :initform '(0.0 0.0)))
+  (:documentation "Abstract representation of a gui element with an origin and a size"))
 
-(defclass gui-canvas ()
+(defclass gui-canvas (gui-element)
   ((pixel-size :reader pixel-size-of)
-   (canvas :accessor canvas-of)))
+   (canvas :accessor canvas-of))
+  (:documentation "Represents a drawable surface, backed by pixel buffer"))
 
-(defmethod initialize-instance ((self gui-canvas) &rest initargs)
-  (declare (ignore initargs))
+(defmethod initialize-instance :after ((self gui-canvas) &rest initargs)
   (let ((pixel-dimensions
-		 (multiple-value-list (apply #'ndc-to-pixel (origin-of self) (size-of self)))))
+		 (multiple-value-list (apply #'ndc-to-pixel init-origin init-size))))
 	(setf (slot-value self 'pixel-size) (list (caddr pixel-dimensions) (cadddr pixel-dimensions)))
 	(setf (slot-value self 'canvas) (make-instance 'vecto::graphics-state))
 	(vecto::state-image (slot-value self 'canvas) (caddr pixel-dimensions) (cadddr pixel-dimensions))))
@@ -90,6 +100,11 @@
 (defun make-gui-element (x y w h)
   (let ((element 
 		 (make-instance 'gui-element :origin (list x y) :size (list w h))))
+  (pushnew element *gui*)))
+
+(defun make-gui-canvas (x y w h)
+  (let ((element 
+		 (make-instance 'gui-canvas :origin (list x y) :size (list w h))))
   (pushnew element *gui*)))
 
 (defmacro continuable (&body body)

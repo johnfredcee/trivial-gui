@@ -13,50 +13,49 @@
 ;; also be used with -1.0, -1.0 at the top and 1.0, 1.0 at the bottom
 ;;
 
-;; -- macrotic evil --------------
+;; -- helpers --------------------
+(declaim (inline x-of))
+(defun x-of (a)
+  (aref a 0))
 
-(defmacro with-gui-canvas (canvas  &body body)
-  `(let ((temp-state ((copy vecto::*graphics-state*))))
-	 (prog2   
-		 (setf (vecto::*graphics-state* (canvas-of ,canvas)))
-		 ,@body
-	   (setf vecto::*graphics-state* temp-state))))
-
-;; -- functions ------------------
-
-(defun ndc-to-pixel (origin size)
-  "Convert (ox oy) (w h) to ndc pixel space coordinates via
-   viewport. Useful for calculating sizes of pixel buffers for gui
-   canvases and the like"
-  (multiple-value-bind (vx vy vw vh)
-	  (gl::get-integer :VIEWPORT)
-	(let ((nx (/ (+ 1.0 (car origin))  2.0))
-		  (ny (/ (+ 1.0 (cadr origin)  2.0)))
-		  (nw (/ (car  size) 2.0))
-		  (nh (/ (cadr size) 2.0)))			
-	  (values (+ vx (* nx vw))
-			  (+ vy (* ny vh))
-			  (* nw vw)
-			  (* nh vh)))))
+(declaim (inline y-of))
+(defun y-of (a)
+  (aref a 1))
 
 ;; -- classes --------------------
 (defclass gui-element ()
-  ((origin :accessor origin-of :initarg :origin :initform '(0.0 0.0))
-   (size :accessor size-of :initarg :size :initform '(0.0 0.0)))
-  (:documentation "Abstract representation of a gui element with an origin and a size"))
+  ((tfmatrix :reader transform-of)
+   (inverse :reader inverse-transform-of)
+   (origin :reader origin-of :initarg :origin :initform (sb-cga:vec 0f0 0f0 0f0))
+   (size :reader size-of :initarg :size :initform #(0f0 0f0))))
 
-(defclass gui-canvas (gui-element)
-  ((pixel-size :reader pixel-size-of)
-   (canvas :accessor canvas-of))
-  (:documentation "Represents a drawable surface, backed by pixel buffer"))
 
-(defmethod initialize-instance :after ((self gui-canvas) &rest initargs)
-  (let ((pixel-dimensions
-		 (multiple-value-list (apply #'ndc-to-pixel init-origin init-size))))
-	(setf (slot-value self 'pixel-size) (list (caddr pixel-dimensions) (cadddr pixel-dimensions)))
-	(setf (slot-value self 'canvas) (make-instance 'vecto::graphics-state))
-	(vecto::state-image (slot-value self 'canvas) (caddr pixel-dimensions) (cadddr pixel-dimensions))))
+(defun compute-transform (element)
+  (let ((tfmat
+		 (sb-cga::matrix
+		  (x-of (size-of element)) 0f0                       0f0 (x-of (origin-of element))
+		  0f0                      (y-of (size-of element))  0f0 (y-of (origin-of element))
+		  0f0                      0f0                       1f0 0f0
+		  0f0                      0f0                       0f0 1f0)))
+    (setf (slot-value element 'tfmatrix) tfmat)
+    (setf (slot-value element 'inverse) (sb-cga:inverse-matrix tfmat))))
 
+
+(defgeneric set-origin (element x y))
+
+(defmethod set-origin ((element gui-element) x y)
+  (setf (slot-value element 'origin) (sb-cga:vec x y 0.0))
+  (compute-transform element))
+
+(defgeneric set-scale (element x y))
+
+(defmethod set-scale ((e gui-element) x y)
+    (setf (slot-value e 'size) (sb-cga:vec x y 0.0))
+    (compute-transform e))
+
+(defmethod initialize-instance :after ((e gui-element) &key)
+    (compute-transform e))
+  
 ;; -- generic functiosn --------------------
 (defgeneric render (element)
  (:documentation "Draw a gui - element"))
@@ -70,42 +69,25 @@
 ;; -- gui element methods --------------------
 
 (defmethod render ((e gui-element))
-  (let ((x (car (origin-of e)))
-		(y (cadr (origin-of e)))
-		(w (car (size-of e)))
-		(z (cadr (size-of e))))
-  (draw-quad  x y z w '(1.0 0.0 0.0))))
+  (let ((origin (sb-cga:transform-point (sb-cga:vec 0.0 0.0 0.0) (transform-of e)))
+	(extent (sb-cga:transform-point (sb-cga:vec 1.0 1.0 0.0) (transform-of e))))
+    (draw-quad origin extent '(1.0 0.0 0.0))))
 
 (defmethod screen-to-element ((e gui-element) x y)
-  (destructuring-bind (ex ey) 
-	  (origin-of e) 
-	(destructuring-bind (w h)
-		(size-of e)
-	  (values
-	   (/ (- x ex) w)
-	   (/ (- y ey) h)))))
+  (let ((result (sb-cga:transform-point (sb-cga::vec x y 0.0) (transform-of e))))
+    (values (x-of result) (y-of result))))
 
 (defmethod element-to-screen ((e gui-element) x y)
-  (destructuring-bind (ex ey) 
-	  (origin-of e) 
-	(destructuring-bind (w h)
-		(size-of e)
-	  (values
-	   (+ ex (* x w))
-	   (+ ey (* y h))))))
+  (let ((result (sb-cga:transform-point (sb-cga::vec x y 0.0) (inverse-transform-of e))))
+    (values (x-of result) (y-of result))))
 
 ;; -- Gui implementation --------------------
 (defparameter *gui* nil)
 
 (defun make-gui-element (x y w h)
   (let ((element 
-		 (make-instance 'gui-element :origin (list x y) :size (list w h))))
-  (pushnew element *gui*)))
-
-(defun make-gui-canvas (x y w h)
-  (let ((element 
-		 (make-instance 'gui-canvas :origin (list x y) :size (list w h))))
-  (pushnew element *gui*)))
+	 (make-instance 'gui-element :origin (sb-cga:vec x y 0f0) :size (sb-cga:vec w h 0f0))))
+    (pushnew element *gui*)))
 
 (defmacro continuable (&body body)
   "Helper macro that we can use to allow us to continue from an

@@ -1,7 +1,8 @@
 
 (asdf:defsystem #:trivial-gui
-  :depends-on (#:glop #:cl-opengl #:vecto #:iterate :sb-cga)
+  :depends-on (#:glop #:cl-opengl #:mathkit #:vecto #:iterate)
   :serial t
   :components ((:file "package")
-			   (:file "textures")
-			   (:file "gui")))
+	       (:file "glop")
+	       (:file "textures")
+	       (:file "gui")))

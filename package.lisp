@@ -1,3 +1,3 @@
 
 (defpackage #:trivial-gui
-  (:use #:cl #:iterate))
+  (:use #:cl #:iterate #:kit.math))

@@ -3,7 +3,7 @@
 
 (in-package #:trivial-gui)
 
-;; to map eye coordinates to clip coordinates
+;; to map eye coordinates to pixel coordinates
 ;; glMatrixMode(GL_PROJECTION);
 ;; glLoadIdentity();
 ;; glOrtho(0.0f, (GLfloat) width, 0.0f, (GLfloat) height, -1.0f, 1.0f);

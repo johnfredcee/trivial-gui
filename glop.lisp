@@ -57,7 +57,7 @@
 
 ;; -- Drawing primitives ---------------------
 
-(defun draw-quad (x y w h color)
+(defun draw-quad* (x y w h color)
   (gl:with-primitives :quads
 	(let ((r (car color))
 		  (g (cadr color))
@@ -71,3 +71,10 @@
 	(gl:color r g b)
 	(gl:vertex x y))))
 
+
+(defun draw-quad (origin extent color)
+  (draw-quad* (x-of origin)
+	      (y-of origin)
+	      (- (x-of extent) (x-of origin))
+	      (- (y-of extent) (y-of origin))
+	      color))

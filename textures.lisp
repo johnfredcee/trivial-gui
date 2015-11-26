@@ -25,21 +25,6 @@
   (gl::bind-texture :texture-2d 0)
   (setf *selected-texture* nil))
 
-(defun save-texture-data (name)
-  "Create a texture from the current vecto canvas named using a keyword name."
-  (assert (keywordp name)) 
-  (let* ((image-data 
-		 (zpng::image-data (vecto::image vecto::*graphics-state*)))
-		(width
-		 (zpng::width (vecto::image vecto::*graphics-state*)))
-		(height
-		 (zpng::height (vecto::image vecto::*graphics-state*)))
-		(tex
-		 (make-texture :id (car (gl::gen-textures 1)) :width width :height height)))
-	(setf (gethash name *textures*) tex)
-	(select-texture name)
-	(gl:tex-parameter :texture-2d :texture-min-filter :linear)
-	(gl:tex-image-2d :texture-2d 0 :rgba width height 0 :rgba :unsigned-byte image-data)))
 
 (defun release-texture (name)
   (when (eql name *selected-texture*)
@@ -51,3 +36,44 @@
   (iterate 
 	(for (name nil) in-hashtable *textures*)
    (release-texture name)))
+
+
+(defun opticl-image-gl-tex (target level image &key border)
+  (opticl:with-image-bounds (width height channels)
+      image
+      (let ((format
+	     (case channels
+	       (1 1)
+	       (3 :bgr)
+	       (4 :bgra))))
+	(cffi:with-foreign-object (foreign-image :uint8 (* width height channels))
+	  (case channels 
+	    (1 (opticl:do-pixels (y x)
+		   image
+		   (setf (cffi:mem-aref foreign-image
+					:uint8 (+ x (* y width)))
+			 (opticl:pixel image y x))))		;; gray
+	    (3 (opticl:do-pixels (y x)
+		   image
+		 (multiple-value-bind
+		       (r g b)
+		     (opticl:pixel image y x)
+		 (let ((index (* (+ x (* y width)) 3)))
+		   (setf (cffi:mem-aref foreign-image :uint8 index) b)
+		   (setf (cffi:mem-aref foreign-image :uint8 (+ 1 index)) g)
+		   (setf (cffi:mem-aref foreign-image :uint8 (+ 2 index)) r)))))
+	    (4 (opticl:do-pixels (y x)
+		   image
+		 (multiple-value-bind
+		       (r g b a)		     
+		     (opticl:pixel image y x)
+		 (let ((index (* (+ x (* y width)) 3)))
+		   (setf (cffi:mem-aref foreign-image :uint8 index) b)
+		   (setf (cffi:mem-aref foreign-image :uint8 (+ 1 index)) g)
+		   (setf (cffi:mem-aref foreign-image :uint8 (+ 2 index)) r)
+		   (setf (cffi:mem-aref foreign-image :uint8 (+ 3 index)) a))))))
+	  (let ((name
+		 (%gl:tex-image-2d target level format width height (if border 1 0) format  :unsigned-byte foreign-image)))
+	    (setf (gethash name *textures*) (make-texture :id handle :width width :height height)))))))
+	    
+	

@@ -73,7 +73,8 @@
 		   (setf (cffi:mem-aref foreign-image :uint8 (+ 2 index)) r)
 		   (setf (cffi:mem-aref foreign-image :uint8 (+ 3 index)) a))))))
 	  (let ((name
-		 (%gl:tex-image-2d target level format width height (if border 1 0) format  :unsigned-byte foreign-image)))
-	    (setf (gethash name *textures*) (make-texture :id handle :width width :height height)))))))
+			 (gl:tex-parameter :texture-2d :texture-min-filter :linear)))
+		(%gl:tex-image-2d target level format width height (if border 1 0) format  :unsigned-byte foreign-image)
+		(setf (gethash name *textures*) (make-texture :id name :width width :height height)))))))
 	    
 	

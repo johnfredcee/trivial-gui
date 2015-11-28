@@ -1,4 +1,3 @@
-
 ;;; -*- Mode: LISP; Syntax: COMMON-LISP; Package: TRIVIAL-GUI; Base: 10;  -*-
 
 (in-package #:trivial-gui)
@@ -24,10 +23,12 @@
 
 ;; -- classes --------------------
 (defclass gui-element ()
-  ((tfmatrix :reader transform-of)
-   (inverse :reader inverse-transform-of)
+  ((children :accessor children-of :type list)
+   (layout :accessor layout-of :type layout)
+   (tfmatrix :reader transform-of :type sb-cga:matrix)
+   (inverse :reader inverse-transform-of :type sb-cga:matrix)
    (origin :reader origin-of :initarg :origin :initform (sb-cga:vec 0f0 0f0 0f0))
-   (size :reader size-of :initarg :size :initform #(0f0 0f0))))
+   (size :reader size-of :initarg :size :initform (sb-cga:vec 0f0 0f0 0f0))))
 
 
 (defun compute-transform (element)

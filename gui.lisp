@@ -23,12 +23,13 @@
 
 ;; -- classes --------------------
 (defclass gui-element ()
-  ((children :accessor children-of :type list)
+  ((children :accessor children-of :type array)
    (layout :accessor layout-of :type layout)
    (tfmatrix :reader transform-of :type sb-cga:matrix)
    (inverse :reader inverse-transform-of :type sb-cga:matrix)
    (origin :reader origin-of :initarg :origin :initform (sb-cga:vec 0f0 0f0 0f0))
    (size :reader size-of :initarg :size :initform (sb-cga:vec 0f0 0f0 0f0))))
+
 
 
 (defun compute-transform (element)
@@ -55,9 +56,15 @@
     (compute-transform e))
 
 (defmethod initialize-instance :after ((e gui-element) &key)
-    (compute-transform e))
-  
+  (setf (children-of e) (make-array 0 :adjustable t :element-type 'gui-element))
+  (compute-transform e))
+
+
 ;; -- generic functiosn --------------------
+
+(defgeneric update (element)
+ (:documentation "Recalculate element layout"))
+
 (defgeneric render (element)
  (:documentation "Draw a gui - element"))
 
@@ -67,8 +74,17 @@
 (defgeneric element-to-screen (element x y)
   (:documentation "Convert x,y from internal element coordinates to screen coordinates"))
 
-;; -- gui element methods --------------------
+(defgeneric add-child (element child)
+   (:documentation "Add a child element to an existing element"))
 
+(defmethod add-child ((element gui-element) child)
+  (setf (slot-value element 'children) (vector-push child (slot-value element 'children)))
+  (update element))
+
+(defmethod update ((element gui-element))
+  (funcall (layout element) element))
+
+;; -- gui element methods --------------------
 (defmethod render ((e gui-element))
   (let ((origin (sb-cga:transform-point (sb-cga:vec 0.0 0.0 0.0) (transform-of e)))
 	(extent (sb-cga:transform-point (sb-cga:vec 1.0 1.0 0.0) (transform-of e))))

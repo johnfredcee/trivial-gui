@@ -3,7 +3,6 @@
 
 (in-package #:trivial-gui)
 
-
 ;; will need to manage openGL textures created from vecto canvases and presented inside
 ;; boxes as buttons, etc.
 
@@ -78,3 +77,9 @@
 		(setf (gethash name *textures*) (make-texture :id name :width width :height height)))))))
 	    
 	
+
+(defun load-texture (name)
+  (let
+      ((texture-filename
+	(file-namestring (merge-pathanmes name (merge-pathnames "images/" *project-data-path*)))))
+    (slurp-texture-file texture-filename)))

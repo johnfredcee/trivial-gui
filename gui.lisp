@@ -114,19 +114,21 @@ error. Remember to hit C in slime or pick the restart so errors don't kill the a
 (defun update-swank ()
   "Called from within the main loop, this keep the lisp repl
 working while trivial-gui runs"
-  (continuable (let ((connection (or swank::*emacs-connection* (swank::default-connection)))) 
-				 (when connection (swank::handle-requests connection t)))))
+  (continuable
+   #+swank (let ((connection (or swank::*emacs-connection* (swank::default-connection)))) 
+	     (when connection (swank::handle-requests connection t)))))
 
 (defun draw-gui ()
   (when *gui*
 	(mapcar #'render *gui*)))
 
 (defun trivial-gui (&key (window-name "Trivial Gui") (window-width 800) (window-height 600))
+  (set-project-system :trivial-gui)
   (glop:with-window (win window-name window-width window-height)
     (format t "Created window: ~S~%" win)
     (gl:clear-color 0.3 0.3 1.0 0)
     (loop while (glop:dispatch-events win :blocking nil) do
-		 (update-swank)
+		 #+swank (update-swank)
 		 (gl:clear :color-buffer)
 		 ;; to do -- add an exit loop restart?
 		 (with-simple-restart (skip-trivial-gui-loop "Skip Trivial GUI loop body")

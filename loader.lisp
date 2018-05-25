@@ -10,7 +10,7 @@
   (setf *project-system-path*
 	(cl-fad:pathname-directory-pathname
 	 (multiple-value-bind (foundp found-system pathname previous previous-time)
-	     (asdf:locate-system name)
+	     (asdf::system-source-directory (asdf:find-system name))
 	   pathname)))
   (setf *project-data-path* (merge-pathnames "data/" *project-system-path*)))
 

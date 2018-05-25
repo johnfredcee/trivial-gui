@@ -123,8 +123,11 @@ working while trivial-gui runs"
 	(mapcar #'render *gui*)))
 
 (defun trivial-gui (&key (window-name "Trivial Gui") (window-width 800) (window-height 600))
-  (set-project-system :trivial-gui)
-  (glop:with-window (win window-name window-width window-height)
+  (set-project-system "trivial-gui")
+  (let* ((current-mode (glop::current-video-mode))
+	 (window-x (- (/ (glop::video-mode-width current-mode) 2) (/ window-width 2)))
+	 (window-y (- (/ (glop::video-mode-height current-mode) 2) (/ window-height 2))))
+  (glop:with-window (win window-name window-width window-height :x window-x :y window-y)
     (format t "Created window: ~S~%" win)
     (gl:clear-color 0.3 0.3 1.0 0)
     (loop while (glop:dispatch-events win :blocking nil) do
@@ -134,4 +137,4 @@ working while trivial-gui runs"
 		 (with-simple-restart (skip-trivial-gui-loop "Skip Trivial GUI loop body")
 		   (draw-gui))
          (gl:flush)
-         (glop:swap-buffers win))))
+         (glop:swap-buffers win)))))

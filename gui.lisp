@@ -25,13 +25,42 @@
 (defclass gui-element ()
   ((children :accessor children-of :type array)
    (layout :accessor layout-of :type layout)
+   (area :accessor area-of :type geometry::box :initform (make-instance 'box :xmin 0f0 :ymin 0f0 :xmax 0f0 :ymax 0f0))
+   (buffers :reader buffers-of)
    (tfmatrix :reader transform-of :type sb-cga:matrix)
    (inverse :reader inverse-transform-of :type sb-cga:matrix)
    (origin :reader origin-of :initarg :origin :initform (sb-cga:vec 0f0 0f0 0f0))
    (size :reader size-of :initarg :size :initform (sb-cga:vec 0f0 0f0 0f0))))
 
+(defgeneric xmin-of ((e gui-element)))
 
+(defmethod xmin-of ((e gui-element))
+  (x-of (origin-of e)))
 
+(defgeneric ymin-of ((e gui-element))
+
+(defmethod ymin-of ((e gui-element))
+  (y-of (origin-of e)))
+
+(defgeneric xmax-of ((e gui-element))
+
+(defmethod xmax-of ((e gui-element))
+   (+ (x-of (size-of e)) (xmin-of e)))
+
+(defgeneric ymax-of ((e gui-element))
+
+(defmethod ymax-of ((e gui-element))
+   (+ (x-of (size-of e)) (ymin-of e)))
+
+(defmethod  update-area ((e gui-element))
+  (setf (area-of e) (make-instance 'geometry::box :xmin (xmin-of e) :xmax (xmax-of e)  :ymin (ymin-of e) :ymax (ymax-of e))))
+
+(defmethod initialize-instance :after ((e gui-element))
+  (setf (children-of e) (make-array 0 :adjustable t :element-type 'gui-element))							       
+  (compute-transform e)
+  (update-area e)
+  (setf (slot-value e 'buffers-of ((gl::gen-buffer) (gl::gen-buffer))))))
+							       	   
 (defun compute-transform (element)
   (let ((tfmat
 		 (sb-cga::matrix
@@ -43,21 +72,20 @@
     (setf (slot-value element 'inverse) (sb-cga:inverse-matrix tfmat))))
 
 
+
 (defgeneric set-origin (element x y))
 
 (defmethod set-origin ((element gui-element) x y)
   (setf (slot-value element 'origin) (sb-cga:vec x y 0.0))
-  (compute-transform element))
+  (compute-transform element)
+  (update-area element))
 
-(defgeneric set-scale (element x y))
+(defgeneric set-size (element x y))
 
-(defmethod set-scale ((e gui-element) x y)
+(defmethod set-size ((e gui-element) x y)
     (setf (slot-value e 'size) (sb-cga:vec x y 0.0))
-    (compute-transform e))
-
-(defmethod initialize-instance :after ((e gui-element) &key)
-  (setf (children-of e) (make-array 0 :adjustable t :element-type 'gui-element))
-  (compute-transform e))
+    (compute-transform e)
+    (update-area element))
 
 
 ;; -- generic functiosn --------------------
@@ -125,6 +153,7 @@ working while trivial-gui runs"
 (defun trivial-gui (&key (window-name "Trivial Gui") (window-width 800) (window-height 600))
   (set-project-system "trivial-gui")
   (let* ((current-mode (glop::current-video-mode))
+	 (ortho-matrix (kit.math::ortho-matrix 0.0 (window-width) 0 (window-height) -1.0 1.0))
 	 (window-x (- (/ (glop::video-mode-width current-mode) 2) (/ window-width 2)))
 	 (window-y (- (/ (glop::video-mode-height current-mode) 2) (/ window-height 2))))
   (glop:with-window (win window-name window-width window-height :x window-x :y window-y)

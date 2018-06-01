@@ -1,6 +1,6 @@
 
 (asdf:defsystem #:trivial-gui
-  :depends-on (#:cl-fad #:geom #:glop #:cl-opengl #:mathkit #:opticl #:cl-vectors #:iterate)
+  :depends-on (#:cl-fad #:geometry #:glop #:cl-opengl #:mathkit #:opticl #:static-vectors #:cl-vectors #:iterate)
   :serial t
   :components ((:file "package")
 	       (:file "glop")
